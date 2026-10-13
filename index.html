@@ -24,11 +24,12 @@ h3 { font-size: 18px; margin: 32px 0 8px; }
 .byline { color: var(--muted); margin: 0 0 28px; }
 .byline a { color: var(--navy); }
 .lede { font-size: 19px; color: var(--ink); }
-.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin: 28px 0 8px; }
-.tile { background: var(--tile); border-radius: 8px; padding: 16px 18px; }
-.tile .k { font-size: 14px; color: var(--muted); }
-.tile .v { font-family: 'IBM Plex Sans', sans-serif; font-weight: 600; font-size: 24px; color: var(--ink); }
-.tile .v .from { color: var(--muted); font-size: 18px; }
+.tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 28px 0 8px; }
+@media (max-width: 720px) { .tiles { grid-template-columns: repeat(2, 1fr); } }
+.tile { background: var(--tile); border-radius: 8px; padding: 18px 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 4px; }
+.tile .k { font-size: 14px; color: var(--muted); line-height: 1.3; }
+.tile .v { font-family: 'IBM Plex Sans', sans-serif; font-weight: 600; font-size: 30px; line-height: 1.15; color: var(--ink); white-space: nowrap; }
+.tile .from { font-size: 14px; color: var(--muted); white-space: nowrap; }
 .note { font-size: 15px; color: var(--muted); }
 .table-wrap { overflow-x: auto; margin: 12px 0 16px; }
 table { border-collapse: collapse; width: 100%; font-size: 16px; }
@@ -55,12 +56,12 @@ footer a { color: var(--navy); }
 <p class="lede">My desktop's graphics card was hitting its 87&deg;C limit and throttling, the fans were loud, and the case was full of dust. I logged sensor data in real game sessions, changed one thing at a time, and compared runs. I found three separate root causes, one of which was software silently undoing my fix.</p>
 
 <div class="tiles" role="list">
-  <div class="tile" role="listitem"><div class="k">GPU core, avg while gaming</div><div class="v"><span class="from">83.8&deg;C &rarr;</span> 72.3&deg;C</div></div>
-  <div class="tile" role="listitem"><div class="k">GPU power, avg</div><div class="v"><span class="from">246W &rarr;</span> 177W</div></div>
-  <div class="tile" role="listitem"><div class="k">Thermal throttling samples</div><div class="v"><span class="from">3 &rarr;</span> 0</div></div>
-  <div class="tile" role="listitem"><div class="k">Worst frame time</div><div class="v"><span class="from">212 ms &rarr;</span> 41 ms</div></div>
+  <div class="tile" role="listitem"><div class="k">GPU core temperature</div><div class="v">72.3&deg;C</div><div class="from">down from 83.8&deg;C</div></div>
+  <div class="tile" role="listitem"><div class="k">GPU power</div><div class="v">177W</div><div class="from">down from 246W</div></div>
+  <div class="tile" role="listitem"><div class="k">Throttling samples</div><div class="v">0</div><div class="from">down from 3</div></div>
+  <div class="tile" role="listitem"><div class="k">Worst frame time</div><div class="v">41 ms</div><div class="from">down from 212 ms</div></div>
 </div>
-<p class="note">Same-day before and after comparison, 17 Sep 2026. No session after the fix throttled.</p>
+<p class="note">Averages while gaming, same-day before and after comparison, 17 Sep 2026. No session after the fix throttled.</p>
 
 <h2>System under test</h2>
 <div class="table-wrap"><table>
