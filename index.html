@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PC Thermal and Noise Fault Investigation | Josiah Francis</title>
+<meta name="description" content="Hardware test report: diagnosing a throttling RTX 3070 desktop with sensor logs, one change at a time.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@600&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #fcfcfb; --ink: #1c1b1a; --body: #2b2a28; --muted: #5f5a52; --navy: #22394f;
+  --rule: #e2e1dc; --tile: #f3f2ee; --good: #2a78d6; --bad: #c4501f;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--bg); color: var(--body); font: 17px/1.6 'Source Sans 3', system-ui, sans-serif; }
+main { max-width: 860px; margin: 0 auto; padding: 48px 20px 80px; }
+h1, h2, h3 { font-family: 'IBM Plex Sans', system-ui, sans-serif; font-weight: 600; color: var(--ink); line-height: 1.25; }
+h1 { font-size: clamp(28px, 5vw, 40px); margin: 0 0 8px; }
+h2 { font-size: 22px; margin: 48px 0 12px; padding-top: 12px; border-top: 1px solid var(--rule); color: var(--navy); }
+h3 { font-size: 18px; margin: 32px 0 8px; }
+.byline { color: var(--muted); margin: 0 0 28px; }
+.byline a { color: var(--navy); }
+.lede { font-size: 19px; color: var(--ink); }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin: 28px 0 8px; }
+.tile { background: var(--tile); border-radius: 8px; padding: 16px 18px; }
+.tile .k { font-size: 14px; color: var(--muted); }
+.tile .v { font-family: 'IBM Plex Sans', sans-serif; font-weight: 600; font-size: 24px; color: var(--ink); }
+.tile .v .from { color: var(--muted); font-size: 18px; }
+.note { font-size: 15px; color: var(--muted); }
+.table-wrap { overflow-x: auto; margin: 12px 0 16px; }
+table { border-collapse: collapse; width: 100%; font-size: 16px; }
+@media (max-width: 480px) { th, td { padding: 8px 6px; font-size: 15px; } }
+th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { font-weight: 600; color: var(--ink); background: var(--tile); }
+td.num, th.num { text-align: right; white-space: nowrap; }
+figure { margin: 20px 0 8px; }
+figure img { width: 100%; height: auto; border: 1px solid var(--rule); border-radius: 6px; background: #fcfcfb; }
+figcaption { font-size: 14px; color: var(--muted); margin-top: 6px; }
+ul { padding-left: 22px; }
+li { margin: 4px 0; }
+code { font-size: 15px; background: var(--tile); padding: 1px 5px; border-radius: 4px; }
+footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--rule); font-size: 15px; color: var(--muted); }
+footer a { color: var(--navy); }
+</style>
+</head>
+<body>
+<main>
+
+<h1>PC Thermal and Noise Fault Investigation</h1>
+<p class="byline">Josiah Francis &middot; August to September 2026 &middot; <a href="https://linkedin.com/in/josiahfrancis">LinkedIn</a></p>
+
+<p class="lede">My desktop's graphics card was hitting its 87&deg;C limit and throttling, the fans were loud, and the case was full of dust. I logged sensor data in real game sessions, changed one thing at a time, and compared runs. I found three separate root causes, one of which was software silently undoing my fix.</p>
+
+<div class="tiles" role="list">
+  <div class="tile" role="listitem"><div class="k">GPU core, avg while gaming</div><div class="v"><span class="from">83.8&deg;C &rarr;</span> 72.3&deg;C</div></div>
+  <div class="tile" role="listitem"><div class="k">GPU power, avg</div><div class="v"><span class="from">246W &rarr;</span> 177W</div></div>
+  <div class="tile" role="listitem"><div class="k">Thermal throttling samples</div><div class="v"><span class="from">3 &rarr;</span> 0</div></div>
+  <div class="tile" role="listitem"><div class="k">Worst frame time</div><div class="v"><span class="from">212 ms &rarr;</span> 41 ms</div></div>
+</div>
+<p class="note">Same-day before and after comparison, 17 Sep 2026. No session after the fix throttled.</p>
+
+<h2>System under test</h2>
+<div class="table-wrap"><table>
+<tr><th>Part</th><th>Model</th></tr>
+<tr><td>CPU</td><td>Intel Core i7-10700K</td></tr>
+<tr><td>Motherboard</td><td>ASUS TUF GAMING Z490-PLUS (WI-FI)</td></tr>
+<tr><td>Memory</td><td>32GB DDR4 (4 x 8GB Corsair, rated 3600 CL18)</td></tr>
+<tr><td>Graphics card</td><td>Palit RTX 3070 GameRock 8GB (about five years old)</td></tr>
+<tr><td>CPU cooler</td><td>Corsair H100i Elite Capellix (AIO), fans run by a Corsair Commander CORE</td></tr>
+<tr><td>Case</td><td>NZXT H510</td></tr>
+</table></div>
+
+<h2>Method and tools</h2>
+<ul>
+  <li>Log a full game session in HWiNFO64 for every change (13 gaming sessions in total).</li>
+  <li>Compare gaming samples only: GPU load above 50%, so idle time does not skew the averages.</li>
+  <li>Change one variable at a time, then log again.</li>
+  <li>Watch HWiNFO's thermal throttling flag, not just temperatures.</li>
+</ul>
+<p>Tools: HWiNFO64, MSI Afterburner (voltage curve, fan curve, temperature limit), OCCT (memory stability), ASUS BIOS (XMP), Corsair iCUE, NVIDIA App. I ran every test and made every hardware and settings change myself; the CSV analysis and charts were done with Claude's help (<a href="code/make_charts.py">chart script</a>).</p>
+
+<h2>Tests and results</h2>
+
+<h3>1. Baseline: is the card thermally limited? (UK, 2 Aug 2026)</h3>
+<div class="table-wrap"><table>
+<tr><th>Reading</th><th>Result</th></tr>
+<tr><td>GPU core</td><td>average 83.7&deg;C, max 87.4&deg;C (at the 87&deg;C limit)</td></tr>
+<tr><td>Thermal limit flag</td><td>on in 89 of 353 gaming samples</td></tr>
+<tr><td>Hot spot</td><td>average 100.5&deg;C, max 106.5&deg;C</td></tr>
+<tr><td>Hot spot minus core</td><td>about 17&deg;C on average, 19&deg;C at peak</td></tr>
+<tr><td>GPU fans</td><td>average 91%, peak 3,532 RPM</td></tr>
+<tr><td>GPU power</td><td>average 203W of a 250W budget</td></tr>
+</table></div>
+<p>Heat, not power, was the limit: the card ran out of fan before it ran out of power. The first fix the same day, an undervolt to 0.9V in MSI Afterburner, brought the next two sessions to 72.4&deg;C and 72.2&deg;C with zero throttling.</p>
+
+<h3>2. Memory running below its rated speed</h3>
+<p>The RAM was running at 2133 instead of its rated 3600. I enabled XMP (DDR4-3600), then ran OCCT's TM5 Extreme memory test for one hour: zero errors, CPU cores peaking at 77 to 84&deg;C, no thermal throttling. <span class="note">(From the OCCT result screen; not in the CSV logs.)</span></p>
+
+<h3>3. Unsafe shutdown counts</h3>
+<p>The drives reported 148 and 158 unsafe shutdowns, which can point to a failing power supply. The cause was me switching the PC off by holding the power button. The power supply was cleared and I stopped the habit. <span class="note">(From the drive health report; not in the CSV logs.)</span></p>
+
+<h3>4. Regression: the undervolt kept disappearing (Taiwan, 17 Sep 2026)</h3>
+<p>After shipping the PC to Taiwan, a session showed the card back at 1.0 to 1.1V and 246W. Root cause: NVIDIA App's automatic tuning was applying its own overclock and overriding Afterburner. I switched it off, re-applied the undervolt and logged again.</p>
+<div class="table-wrap"><table>
+<tr><th></th><th class="num">Auto-tuning on</th><th class="num">Undervolt restored</th></tr>
+<tr><td>GPU core</td><td class="num">83.8&deg;C</td><td class="num">72.3&deg;C</td></tr>
+<tr><td>Hot spot</td><td class="num">98.9&deg;C</td><td class="num">85.7&deg;C</td></tr>
+<tr><td>Voltage</td><td class="num">1.0 to 1.1V</td><td class="num">0.9V</td></tr>
+<tr><td>Power</td><td class="num">246W</td><td class="num">177W</td></tr>
+<tr><td>GPU fans</td><td class="num">96%</td><td class="num">83%</td></tr>
+<tr><td>Thermal throttling</td><td class="num">3 samples</td><td class="num">0</td></tr>
+<tr><td>Worst frame time</td><td class="num">212 ms</td><td class="num">41 ms</td></tr>
+</table></div>
+<figure><img src="charts/1_regression_fix.png" alt="Bar charts comparing auto-tuning on with the undervolt restored: GPU core 83.8 to 72.3 degrees, hot spot 98.9 to 85.7, power 246 to 177 watts, worst frame time 212 to 41 milliseconds."><figcaption>Before and after the root cause was fixed.</figcaption></figure>
+
+<h3>5. Airflow A/B test: top fan as intake or exhaust (18 and 20 Sep 2026)</h3>
+<p>Only the top fan direction changed between the two sessions.</p>
+<div class="table-wrap"><table>
+<tr><th></th><th class="num">Top fan intake</th><th class="num">Top fan exhaust</th></tr>
+<tr><td>GPU core</td><td class="num">76.1&deg;C</td><td class="num">78.2&deg;C</td></tr>
+<tr><td>Hot spot</td><td class="num">89.6&deg;C</td><td class="num">92.2&deg;C</td></tr>
+<tr><td>GPU fan</td><td class="num">2,201 RPM</td><td class="num">2,311 RPM</td></tr>
+<tr><td>CPU package</td><td class="num">67.0&deg;C</td><td class="num">66.7&deg;C</td></tr>
+</table></div>
+<p>Decision: top intake. Cooler GPU, slower GPU fan, and positive pressure to keep dust out. Caveat: the sessions were two days apart, so room temperature may have differed slightly. I also cleaned the clogged radiator and turned the front fans round, which had been mounted backwards.</p>
+<figure><img src="charts/2_airflow_ab.png" alt="Bar charts comparing top fan exhaust with top fan intake: GPU core 78.2 versus 76.1 degrees, hot spot 92.2 versus 89.6, GPU fan 2311 versus 2201 RPM."><figcaption>Intake won on every GPU measure.</figcaption></figure>
+
+<h3>6. Noise: radiator fans stuck at high speed</h3>
+<p>The two radiator fans ran at about 2,300 to 2,450 RPM in every session while the coolant stayed at 37 to 40&deg;C. A BIOS fan curve could not fix it, because these fans are run by the Corsair Commander CORE, not the motherboard. In iCUE, the Quiet preset only brought them from 2,391 to 2,208 RPM, because the coolant reached 40.5&deg;C, where Quiet ramps up. A fixed 30% setting brought them to 1,212 to 1,484 RPM in game, about 40 to 50% slower, and the machine became quiet.</p>
+<p><strong>Trade-off, visible in the logs:</strong> with slower radiator fans, coolant rose to 45 to 47&deg;C, CPU package to an average of 67 to 68&deg;C and GPU core to 76 to 81&deg;C. Still no throttling in any session.</p>
+<figure><img src="charts/4_aio_fan_rpm.png" alt="Line chart of radiator fan speed across 13 sessions: about 2300 to 2450 RPM until 18 September, then 1212 to 1484 RPM after the fixed 30 percent setting."><figcaption>Radiator fan speed across every logged session.</figcaption></figure>
+<figure><img src="charts/3_session_timeline.png" alt="Line chart of average GPU core temperature across 13 sessions from 2 August to 21 September 2026, with throttling only in the UK baseline and the auto-tuning override session."><figcaption>GPU core temperature across every logged session. Throttling appears only in the baseline and the auto-tuning session.</figcaption></figure>
+
+<h2>Final state</h2>
+<ul>
+  <li>No thermal throttling in any of the 8 gaming sessions after the fix on 17 Sep.</li>
+  <li>GPU core averages 72 to 81&deg;C depending on the session, below the 87&deg;C limit.</li>
+  <li>Hot spot minus core about 13 to 15&deg;C, so the card does not need opening for new thermal paste.</li>
+  <li>One later match: 91.9 FPS average, 10.6 ms average frame time, worst spike 19.3 ms.</li>
+  <li>Memory stable at its rated 3600; fans quiet; dust addressed with cleaning and positive pressure.</li>
+</ul>
+
+<h2>What I learned</h2>
+<ul>
+  <li>Measure before fixing: the obvious suspect (thermal paste) was not the main problem.</li>
+  <li>Change one thing at a time, or you cannot tell which change worked.</li>
+  <li>When a fix "stops working", look for another tool overriding it.</li>
+  <li>Check which controller actually drives a component before changing its settings.</li>
+  <li>Every fix has a cost: quieter fans meant a warmer case. Log it and decide on purpose.</li>
+</ul>
+
+<h2>Still open</h2>
+<ul>
+  <li>Try a coolant-based fan curve in iCUE to win back a few degrees without the noise.</li>
+  <li>Turn on iCUE Device Memory Mode so the quiet profile holds without iCUE running.</li>
+  <li>Refit the PCI slot covers to close the last dust gap.</li>
+  <li>New thermal paste or pads only if hot spot minus core climbs above 18 to 20&deg;C, or memory junction runs 95&deg;C or more.</li>
+</ul>
+
+<footer>Josiah Francis &middot; <a href="https://linkedin.com/in/josiahfrancis">linkedin.com/in/josiahfrancis</a> &middot; Also: <a href="https://jozxo.github.io/player-sentiment">Cross-Language Player Sentiment Study</a></footer>
+</main>
+</body>
+</html>
